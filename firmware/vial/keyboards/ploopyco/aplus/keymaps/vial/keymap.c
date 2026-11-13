@@ -107,6 +107,8 @@ static const uint8_t led_slot_default[NUM_LED_SLOTS][2] = {
 
 #define LED_DEFAULT_BRIGHTNESS (RGBLIGHT_VAL_STEP * 4)
 #define LED_SAVE_DELAY_MS 1500
+#define MOUSE_LED_CHANGE_INTERVAL_MS 50
+#define MOUSE_LED_HUE_STEP 8
 
  /* Persistent settings. See eeconfig_init_user() for default values. */
 typedef union {
@@ -140,6 +142,8 @@ user_config_t user_config;
 static persistent_t persist;
 static bool     led_save_pending = false;
 static uint32_t led_save_timer   = 0;
+static uint32_t last_mouse_led_change = 0;
+static bool     mouse_led_change_started = false;
 
 /* Bump to reset the saved A+ settings once on the next flash (0-3). */
 #define USER_CONFIG_VERSION 3 /* Earlier builds stored 0-2 here. */
@@ -172,6 +176,37 @@ static void apply_led_config(void) {
     for (uint8_t i = 0; i < NUM_RGB_LAYERS; i++) {
         rgblight_set_layer_state(i, rgblight_get_layer_state(i));
     }
+}
+
+static void cycle_active_led_colour(void) {
+    uint8_t layer;
+    rgblight_segment_t *segment;
+
+    if (!persist.leds_on ||
+        (mouse_led_change_started && timer_elapsed32(last_mouse_led_change) < MOUSE_LED_CHANGE_INTERVAL_MS)) {
+        return;
+    }
+
+    if (rgblight_get_layer_state(GESTURE_LAYER_COLOUR)) {
+        layer = GESTURE_LAYER_COLOUR;
+        segment = gesture_layer_colour;
+    } else if (rgblight_get_layer_state(CONTROL_LAYER_COLOUR)) {
+        layer = CONTROL_LAYER_COLOUR;
+        segment = control_layer_colour;
+    } else if (rgblight_get_layer_state(RIGHTY_NAV_LAYER_COLOUR)) {
+        layer = RIGHTY_NAV_LAYER_COLOUR;
+        segment = righty_nav_layer_colour;
+    } else if (rgblight_get_layer_state(LEFTY_NAV_LAYER_COLOUR)) {
+        layer = LEFTY_NAV_LAYER_COLOUR;
+        segment = lefty_nav_layer_colour;
+    } else {
+        return;
+    }
+
+    segment[0].hue += MOUSE_LED_HUE_STEP;
+    rgblight_set_layer_state(layer, true);
+    last_mouse_led_change = timer_read32();
+    mouse_led_change_started = true;
 }
 
 static void led_config_defaults(void) {
@@ -925,6 +960,10 @@ report_mouse_t pointing_device_task_user(report_mouse_t mouse_report) {
 
         process_wheel(0, leftwheel_delta,  leftwheel_deadzone_distance,  &mouse_report);
         process_wheel(1, rightwheel_delta, rightwheel_deadzone_distance, &mouse_report);
+    }
+
+    if (mouse_report.x != 0 || mouse_report.y != 0) {
+        cycle_active_led_colour();
     }
 
     return mouse_report;

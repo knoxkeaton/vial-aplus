@@ -22,6 +22,8 @@ ported to [vial-qmk](https://github.com/vial-kb/vial-qmk), with these changes:
 
 Everything else (DPI cycling, drag scroll, LED brightness, mirror mode, OS-aware
 shortcuts, settings saved across power cycles) works as on the stock firmware.
+The default DPI after an EEPROM reset is **1600**; a DPI value already saved in
+EEPROM remains active.
 
 ## Flashing
 
@@ -129,6 +131,8 @@ In Vial, open the **Lighting** tab:
 - **Underglow Effect**: "All Off" turns the LEDs off; any other choice is a
   solid colour (animated effects aren't supported with layer colours).
 - Changes save themselves about 1.5 s after the last one; **Save** saves at once.
+- Moving the trackball cycles the currently active LED colour through hues.
+  The hue advances at most once every 50 ms while the ball is moving.
 
 Defaults: left-handed red, right-handed blue, control green, gesture as on
 Ploopy's firmware. The short confirmation blink keeps its fixed colour.

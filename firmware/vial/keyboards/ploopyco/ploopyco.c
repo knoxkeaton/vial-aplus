@@ -44,7 +44,7 @@
 #    endif
 #endif
 #ifndef PLOOPY_DPI_DEFAULT
-#    define PLOOPY_DPI_DEFAULT 0
+#    define PLOOPY_DPI_DEFAULT 0 
 #endif
 #ifndef PLOOPY_DRAGSCROLL_DIVISOR_H
 #    define PLOOPY_DRAGSCROLL_DIVISOR_H 8.0
@@ -142,6 +142,19 @@ void cycle_dpi(void) {
     pointing_device_set_cpi(dpi_array[keyboard_config.dpi_config]);
 }
 
+static int8_t take_scroll_delta(float *accumulated) {
+    float delta = *accumulated;
+    if (delta > INT8_MAX) {
+        delta = INT8_MAX;
+    } else if (delta < -INT8_MAX) {
+        delta = -INT8_MAX;
+    }
+
+    int8_t report_delta = (int8_t)delta;
+    *accumulated -= report_delta;
+    return report_delta;
+}
+
 report_mouse_t pointing_device_task_kb(report_mouse_t mouse_report) {
     if (is_drag_scroll) {
         // scroll_accumulated_h += (float)mouse_report.x / PLOOPY_DRAGSCROLL_DIVISOR_H;
@@ -158,17 +171,14 @@ report_mouse_t pointing_device_task_kb(report_mouse_t mouse_report) {
         last_scroll = timer_read();
 #endif
 
-        // Assign integer parts of accumulated scroll values to the mouse report
-        mouse_report.h = (int8_t)scroll_accumulated_h;
+        // Keep each wheel delta in range while preserving any remaining movement.
+        mouse_report.h = take_scroll_delta(&scroll_accumulated_h);
+        int8_t scroll_delta = take_scroll_delta(&scroll_accumulated_v);
 #ifdef PLOOPY_DRAGSCROLL_INVERT
-        mouse_report.v = -(int8_t)scroll_accumulated_v;
+        mouse_report.v = -scroll_delta;
 #else
-        mouse_report.v = (int8_t)scroll_accumulated_v;
+        mouse_report.v = scroll_delta;
 #endif
-
-        // Update accumulated scroll values by subtracting the integer parts
-        scroll_accumulated_h -= (int8_t)scroll_accumulated_h;
-        scroll_accumulated_v -= (int8_t)scroll_accumulated_v;
 
         // Clear the X and Y values of the mouse report
         mouse_report.x = 0;
